@@ -1,1 +1,1 @@
-# Kid-Pix-Deluxe-3
+# Kid Pix Deluxe 3 - Windows 10/11 version
