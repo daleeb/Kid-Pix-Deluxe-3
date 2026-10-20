@@ -1,1 +1,3 @@
-# Kid Pix Deluxe 3 - Windows 10/11 version
+Kid Pix Deluxe 3 – Windows 10 & 11 Edition
+
+This is the classic Kid Pix Deluxe 3 from 2000, updated so it installs and runs on modern Windows. The original disc’s installer was built for 1990s versions of Windows (it’s a 16-bit program), so it won’t even start on today’s PCs. This release replaces it with a new, simple installer that puts the game on your computer and adds a desktop shortcut, with no administrator prompt. The game was also made for the small screens of its day, so it includes a new launcher that lets you choose how big to play: the original size, larger windows, or full screen. Everything kids loved is still here, including drawing, stamps, sounds, backgrounds and the Idea Machine, and pictures save and open without needing Apple’s long-retired QuickTime.
