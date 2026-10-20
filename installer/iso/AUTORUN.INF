@@ -1,0 +1,5 @@
+[autorun]
+open=Setup.exe
+icon=Autorun.ico
+label=Kid Pix Deluxe 3
+action=Install Kid Pix Deluxe 3

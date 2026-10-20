@@ -1,0 +1,107 @@
+Kid Pix Deluxe 3 - Windows 10 and 11 edition
+=============================================
+
+This is Kid Pix Deluxe 3 (Broderbund, 2000), set up to run on Windows 10 and
+Windows 11: scaled up to a modern screen, without QuickTime, and without an
+administrator prompt. The game itself is unchanged; a few small add-ons let it
+run on today's Windows (see "What was changed" below).
+
+
+PLAYING
+-------
+
+Start "Kid Pix Deluxe 3" from the desktop or the Start menu. A small window
+lets you choose how big the game is:
+
+  Original      800 x 600, as it shipped
+  Large         1200 x 900 (1.5x, smooth)
+  Extra large   1600 x 1200 (exactly 2x, every pixel doubled)
+  Fullscreen    the whole screen, keeping the shape
+
+Sizes that do not fit on your screen are greyed out. Pick one and click Play.
+The choice is remembered for next time. To change the size, close the game and
+start it again from the shortcut.
+
+The title picture stays up for about half a minute before the sign-in screen.
+Type a name (letters, digits and spaces) and click GO; each name gets its own
+folder for pictures.
+
+In the game:
+
+  - The menu bar (File, Edit, Add, Toolbox, ...) is shown along the top of the
+    picture. Alt or F10 opens it from the keyboard.
+  - Pictures are saved in the game folder, under
+      Users\<name>\My Pictures
+    The game folder is normally
+      C:\Users\<you>\AppData\Local\Programs\Kid Pix Deluxe 3
+  - To use a background, drag its thumbnail onto the canvas.
+  - Idea Machine pictures: Toolbox > Idea Machine.
+  - Help > View User Guide opens the manual (KPD3Manual.pdf) in your PDF
+    viewer. It is also in the Start menu.
+  - The first click after drawing, using a menu or switching back to the game
+    is sometimes ignored; just click again.
+  - In a window, the game keeps the mouse pointer inside its window while you
+    play. Ctrl+Tab lets the pointer go (or switch away with Alt+Tab).
+
+
+WHAT DOES NOT WORK
+------------------
+
+The game was written for QuickTime 4. QuickTime for Windows is no longer
+supported by Apple and has known security problems, so it is not used. Kid Pix
+pictures still save and open (Windows itself does the JPEG work QuickTime used
+to do), but these need real QuickTime and are not available:
+
+  - movies (Add > Add Movie, and the movies in the QTmovies folder)
+  - animated toons
+  - importing pictures made outside Kid Pix
+
+Text-to-speech also needs a speech engine from 2000 that is not installed.
+
+
+WHAT WAS CHANGED
+----------------
+
+  Kid Pix Launcher.exe   the size chooser the shortcuts start.
+  ddraw.dll, ddraw.ini   cnc-ddraw 7.1.0.0 (github.com/FunkyFr3sh/cnc-ddraw),
+                         which draws the game's 800 x 600 picture scaled up in
+                         a normal window.
+  configit.dll           a small compatibility add-on that fixes the running
+                         game in memory: keeps it on one CPU core (it crashes
+                         on several), answers its sound-card and screen-size
+                         checks, stops it changing your screen resolution,
+                         shows the menu bar, fixes typing in the text tool,
+                         opens the manual, and stands in for QuickTime.
+                         The original file is configit_real.dll.
+  KPD3.exe               13 bytes changed so a MIDI check that crashes on
+                         modern Windows is skipped.
+  KPD3.cfg, KPD3.ini,    settings: no CD needed, no splash screen, runs in a
+  Mohawk.w32             window.
+  KPD3Manual.pdf         the manual, renamed from KdpxManual.pdf. Windows
+                         recognises the old name and then forces Kid Pix to
+                         run as administrator; with the new name it does not.
+  fonts                  the game's 22 fonts (Vogel, Jester, Storybook, ...)
+                         are installed into Windows for your account only,
+                         and are removed again when Kid Pix is uninstalled.
+
+Apart from those fonts, nothing is installed into Windows, and the only
+registry setting is the remembered window size
+(HKEY_CURRENT_USER\Software\KidPixDeluxe3).
+cnc-ddraw is MIT-licensed; its licence is in "cnc-ddraw LICENSE.txt".
+
+
+TROUBLESHOOTING
+---------------
+
+To record what happens at startup, open ddraw.ini in the game folder with
+Notepad, set   log=1   under [configit], save, and start the game. The
+record is written to configit.log in the game folder. Set it back to 0
+afterwards.
+
+
+UNINSTALLING
+------------
+
+Use "Uninstall Kid Pix Deluxe 3" in the Start menu, or Settings > Apps.
+The children's pictures in the Users folder are not deleted; remove the game
+folder yourself if you no longer want them. The fonts are removed.

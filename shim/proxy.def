@@ -1,0 +1,12 @@
+LIBRARY configit
+EXPORTS
+    GetMONETInternalCfgLocDLL=fwd_GetMONETInternalCfgLocDLL
+    GetMONETParamCfgLocDLL=fwd_GetMONETParamCfgLocDLL
+    _comm_cfgVerifyEmailConfigDLL@8=fwd_comm_cfgVerifyEmailConfigDLL_at_8
+    _comm_cfgVerifyInternetConfigDLL@8=fwd_comm_cfgVerifyInternetConfigDLL_at_8
+    commRetrieveConfigurationDLL=fwd_commRetrieveConfigurationDLL
+    commStoreConfigurationDLL=fwd_commStoreConfigurationDLL
+    comm_cfgConfigureDLL=fwd_comm_cfgConfigureDLL
+    comm_cfgGetConfigurationDLL=fwd_comm_cfgGetConfigurationDLL
+    comm_cfgSetConfigurationDLL=fwd_comm_cfgSetConfigurationDLL
+    comm_cfgVerifyConfigDLL=fwd_comm_cfgVerifyConfigDLL

@@ -1,0 +1,13 @@
+# Build output
+build/
+out/
+shim/build/
+launcher/build/
+
+# Never commit the game: it is Broderbund's. prepare.ps1 makes it from your CD.
+*.iso
+*.exe
+*.kpx
+*.ttf
+*.TTF
+configit.log
