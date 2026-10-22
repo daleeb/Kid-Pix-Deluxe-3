@@ -39,6 +39,9 @@
      QuickTime          - a stand-in for the few QuickTime calls that saving and
                           opening pictures need (qtstub.inc.c).
 
+   Two builds of KPD3.exe are supported, the US release and the Brazilian
+   Portuguese one; the addresses of each are in g_builds below.
+
    Logging is off unless ddraw.ini asks for it ([configit] log=1 or 2, see
    below); it then goes to configit.log next to KPD3.exe. */
 #define COBJMACROS
@@ -149,6 +152,66 @@ static void log_open(HMODULE self)
           st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, exe, g_log, g_ddrawIni);
 }
 
+/* ---- the KPD3.exe builds ---------------------------------------------- */
+/* The fixes that touch the game's own code need its addresses, and those
+   differ per build. Known builds: the US release (1.0, linked 2000-10-29) and
+   the Brazilian Portuguese one (1.0.1, linked 2003-08-16, recompiled with
+   stack checks, so every address moved). The build is told by the link
+   timestamp in KPD3.exe's header, which the 13-byte MIDI patch on disk does
+   not change. Comments elsewhere give the US addresses. A build not listed
+   here gets only the fixes made through the import table. */
+typedef struct {
+    const char *name;
+    DWORD stamp;
+    DWORD imageHi;                                  /* end of .text */
+    DWORD ddStarted, ddObject, ddPrimary, ddError;  /* DirectDraw globals */
+    DWORD pickFn, pickCall, setmodeFn, setmodeCall; /* display mode */
+    DWORD manualName, manualFn;                     /* manualFn: 1.0.1 only, see open_manual */
+    DWORD purecall, amsgExit;
+    DWORD fontcastStart, fontcastExit, iatSendMessageA;
+    DWORD pinFn, iatGetWindowLongA, iatGetWindowRect, clickGetRect;   /* menu bar */
+    DWORD qtThunks, qtInitCount, qtLoadFn, qtQfxEraserFn;             /* QuickTime */
+} KPD3_BUILD;
+
+static const KPD3_BUILD g_builds[] = {
+    { "US 1.0", 0x39FC547E, 0x00552000,
+      0x00598258, 0x005980D0, 0x005980BC, 0x00597F40,
+      0x004FA863, 0x004FA3EA, 0x004FEDC0, 0x004FA471,
+      0x00581710, 0,
+      0x0052BFE0, 0x005303E0,
+      0x004FB036, 0x004FB503, 0x005526E0,
+      0x005092F4, 0x0055251C, 0x005526F0, 0x00509202,
+      0x00586E28, 0x00597DD0, 0x00454A60, 0x004AD620 },
+    { "Brazilian Portuguese 1.0.1", 0x3F3D8015, 0x0056F000,
+      0x005B5C70, 0x005B5AE8, 0x005B5AD4, 0x005B5958,
+      0x004F99E0, 0x004F9056, 0x00502DA0, 0x004F9130,
+      0x005A167C, 0x004366D0,
+      0x00548FD0, 0x0054D140,
+      0x004FAB76, 0x004FB592, 0x0056F4E0,
+      0x00517810, 0x0056F50C, 0x0056F6F0, 0x005174DC,
+      0x005A6D78, 0x005B58A0, 0x00455190, 0x004AE1F0 },
+};
+static const KPD3_BUILD *g_b;       /* NULL: unknown build */
+
+static void detect_build(void)      /* DllMain */
+{
+    BYTE *base = (BYTE *)GetModuleHandleA(NULL);
+    IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)(base + ((IMAGE_DOS_HEADER *)base)->e_lfanew);
+    int i;
+    for (i = 0; i < (int)ARRAYSIZE(g_builds); i++)
+        if (nt->FileHeader.TimeDateStamp == g_builds[i].stamp && (DWORD)base == 0x00400000)
+            g_b = &g_builds[i];
+    if (g_b) notef("proxy", 1, "KPD3.exe build: %s", g_b->name);
+    else notef("proxy", 0, "KPD3.exe build %08lX is not known: only the import-table fixes are applied",
+               nt->FileHeader.TimeDateStamp);
+}
+
+/* An address inside the game's code (for crash records and the menu bar). */
+static int in_game(DWORD a)
+{
+    return a >= 0x00401000 && a < (g_b ? g_b->imageHi : 0x00552000);
+}
+
 /* ------------------------------------------------------------------ */
 typedef HANDLE  (WINAPI *PFN_CreateFileA)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 typedef void    (WINAPI *PFN_OutputDebugStringA)(LPCSTR);
@@ -167,6 +230,7 @@ typedef HWND    (WINAPI *PFN_CreateWindowExA)(DWORD, LPCSTR, LPCSTR, DWORD, int,
 typedef DWORD   (WINAPI *PFN_WaitForSingleObject)(HANDLE, DWORD);
 typedef int     (WINAPI *PFN_IntersectClipRect)(HDC, int, int, int, int);
 typedef int     (WINAPI *PFN_ToAscii)(UINT, UINT, CONST BYTE *, LPWORD, UINT);
+typedef int     (WINAPI *PFN_ToAsciiEx)(UINT, UINT, CONST BYTE *, LPWORD, UINT, HKL);
 typedef BOOL    (WINAPI *PFN_DeviceIoControl)(HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 typedef BOOL    (WINAPI *PFN_CreateProcessA)(LPCSTR, LPSTR, LPSECURITY_ATTRIBUTES, LPSECURITY_ATTRIBUTES, BOOL, DWORD,
                                              LPVOID, LPCSTR, LPSTARTUPINFOA, LPPROCESS_INFORMATION);
@@ -190,6 +254,7 @@ static PFN_CreateWindowExA          o_CreateWindowExA;
 static PFN_WaitForSingleObject      o_WaitForSingleObject;
 static PFN_IntersectClipRect        o_IntersectClipRect;
 static PFN_ToAscii                  o_ToAscii;
+static PFN_ToAsciiEx                o_ToAsciiEx;
 static PFN_DeviceIoControl          o_DeviceIoControl;
 static PFN_CreateProcessA           o_CreateProcessA;
 static PFN_GetSystemMetrics         o_GetSystemMetrics;
@@ -253,10 +318,10 @@ static int WINAPI my_GetDeviceCaps(HDC dc, int idx)
    present, and CreateFileA is a backup. cnc-ddraw does not hook either, so
    they keep working after DDRAW.DLL loads (it re-patches the slots it hooks,
    by name, which is why nothing here touches StretchBlt or GetDC). */
-#define KPD3_DD_STARTED  (*(volatile WORD  *)0x00598258)   /* sub_4FE6BC entered */
-#define KPD3_DD_OBJECT   (*(volatile DWORD *)0x005980D0)   /* IDirectDraw2, set once ready */
-#define KPD3_DD_PRIMARY  (*(void * volatile *)0x005980BC)
-#define KPD3_DD_ERROR    (*(volatile WORD  *)0x00597F40)
+#define KPD3_DD_STARTED  (*(volatile WORD  *)g_b->ddStarted)   /* sub_4FE6BC entered */
+#define KPD3_DD_OBJECT   (*(volatile DWORD *)g_b->ddObject)    /* IDirectDraw2, set once ready */
+#define KPD3_DD_PRIMARY  (*(void * volatile *)g_b->ddPrimary)
+#define KPD3_DD_ERROR    (*(volatile WORD  *)g_b->ddError)
 
 static DWORD g_mainTid;
 static void  menu_tick(void);
@@ -266,7 +331,7 @@ static void *g_primary;
 static void ensure_primary(const char *why)
 {
     FARPROC *t;
-    if (g_primTried || GetCurrentThreadId() != g_mainTid || !GetModuleHandleA("ddraw.dll")) return;
+    if (!g_b || g_primTried || GetCurrentThreadId() != g_mainTid || !GetModuleHandleA("ddraw.dll")) return;
     if (!KPD3_DD_STARTED || !KPD3_DD_OBJECT) return;
     g_primTried = 1;
     t = (FARPROC *)GetProcAddress(GetModuleHandleA(NULL), "ddrawEXPORTS");
@@ -287,7 +352,7 @@ static short __cdecl pick_mode(unsigned short *req, char *out)
     short r;
     notef("mode", 1, "request: %ux%u colors=%lu pal=%u bpp=%u refresh=%lu",
           req[0], req[1], *(DWORD *)(req + 2), req[4], req[5], *(DWORD *)(req + 6));
-    r = ((PFN_pick)0x004FA863)(req, out);
+    r = ((PFN_pick)g_b->pickFn)(req, out);
     notef("mode", r > 0, "picked (%d): '%.32s' %lux%lu %lubpp %luHz",
           r, out, *(DWORD *)(out + 0x6C), *(DWORD *)(out + 0x70), *(DWORD *)(out + 0x68), *(DWORD *)(out + 0x78));
     /* KPD3 takes the smallest offered mode that is at least as big as its
@@ -308,7 +373,7 @@ static short __cdecl pick_mode(unsigned short *req, char *out)
 
 static short __cdecl log_setmode(int w, int h, int bpp, int hz)
 {
-    short r = ((PFN_setmode)0x004FEDC0)(w, h, bpp, hz);
+    short r = ((PFN_setmode)g_b->setmodeFn)(w, h, bpp, hz);
     notef("mode", r == 0, "DirectDraw SetDisplayMode(%d, %d, %d, %d) -> %d", w, h, bpp, hz, r);
     return r;
 }
@@ -332,12 +397,13 @@ static void redirect_call(DWORD at, void *to, DWORD expect)
    rights. The manual is renamed to KPD3Manual.pdf (same length) so that entry
    no longer matches; Help > Manual is pointed at the new name here. If the
    original name is put back, nothing is patched and Windows' layer returns. */
-#define KPD3_MANUAL_NAME ((char *)0x00581710)   /* used only by sub_436280 */
+#define KPD3_MANUAL_NAME ((char *)g_b->manualName)   /* used only by sub_436280 */
 
 static void rename_manual(void)
 {
     char path[MAX_PATH], *q;
     DWORD old;
+    if (!g_b) return;
     GetModuleFileNameA(NULL, path, MAX_PATH);
     q = strrchr(path, 92);
     if (!q) return;
@@ -368,12 +434,14 @@ static void __cdecl log_purecall(DWORD ret, DWORD *obj, DWORD *esp)
     n = _snprintf(line, sizeof(line), "KPD3 stack:");
     __try {
         for (j = 0; j < 512 && n < (int)sizeof(line) - 12; j++)
-            if (esp[j] >= 0x00401000 && esp[j] < 0x00552000)
+            if (in_game(esp[j]))
                 n += _snprintf(line + n, sizeof(line) - n, " %08lX", esp[j]);
     } __except (1) { }
     line[sizeof(line) - 1] = 0;
     log_line(1, "R6025", 0, line);
 }
+
+static DWORD g_amsgExit;
 
 __declspec(naked) static void my_purecall(void)
 {
@@ -385,7 +453,7 @@ __declspec(naked) static void my_purecall(void)
         call log_purecall
         add  esp, 12
         push 19h                 /* what __purecall itself does */
-        mov  eax, 0x005303E0     /* __amsg_exit */
+        mov  eax, g_amsgExit     /* __amsg_exit */
         call eax
         add  esp, 4
         ret
@@ -432,7 +500,7 @@ static LONG WINAPI av_logger(EXCEPTION_POINTERS *ep)
         DWORD *sp = (DWORD *)c->Esp;
         DWORD *top = (DWORD *)((NT_TIB *)NtCurrentTeb())->StackBase;
         for (j = 0; j < 1024 && sp + j < top && n < (int)sizeof(line) - 12; j++)
-            if (sp[j] >= 0x00401000 && sp[j] < 0x00552000)
+            if (in_game(sp[j]))
                 n += _snprintf(line + n, sizeof(line) - n, " %08lX", sp[j]);
     } __except (1) { }
     line[sizeof(line) - 1] = 0;
@@ -442,12 +510,15 @@ static LONG WINAPI av_logger(EXCEPTION_POINTERS *ep)
 
 static void trap_purecall(void)
 {
-    BYTE *p = (BYTE *)0x0052BFE0; DWORD old;
+    BYTE *p; DWORD old;
+    if (!g_b) return;
+    p = (BYTE *)g_b->purecall;
+    g_amsgExit = g_b->amsgExit;
     if (p[0] != 0x55 || p[1] != 0x8B || p[2] != 0xEC || p[3] != 0x6A || p[4] != 0x19) {
         notef("proxy", 0, "__purecall not where expected"); return;
     }
     VirtualProtect(p, 5, PAGE_EXECUTE_READWRITE, &old);
-    p[0] = 0xE9; *(DWORD *)(p + 1) = (DWORD)my_purecall - (0x0052BFE0 + 5);
+    p[0] = 0xE9; *(DWORD *)(p + 1) = (DWORD)my_purecall - ((DWORD)p + 5);
     VirtualProtect(p, 5, old, &old);
     FlushInstructionCache(GetCurrentProcess(), p, 5);
 }
@@ -626,6 +697,13 @@ static int WINAPI my_ToAscii(UINT vk, UINT sc, CONST BYTE *ks, LPWORD ch, UINT f
     return o_ToAscii(vk, sc, ks, ch, fl);
 }
 
+/* 1.0.1 calls ToAsciiEx with the keyboard layout instead (for accents). */
+static int WINAPI my_ToAsciiEx(UINT vk, UINT sc, CONST BYTE *ks, LPWORD ch, UINT fl, HKL kl)
+{
+    if (ch) *ch = 0;
+    return o_ToAsciiEx(vk, sc, ks, ch, fl, kl);
+}
+
 /* Startup drive scan (sub_4F5D1C): for removable drives it opens the volume
    and loops over the result of a disk query without checking that either
    worked. A failed DeviceIoControl leaves "bytes returned" untouched, so the
@@ -643,7 +721,37 @@ static BOOL WINAPI my_DeviceIoControl(HANDLE h, DWORD code, LPVOID in, DWORD cbI
    (any modern PC) it runs "<game folder>\kprun.exe Acro" - unquoted, and
    kprun.exe, Broderbund's helper that offered to install Acrobat 4, is not
    shipped - so the menu item did nothing. Open the manual in whatever PDF
-   viewer Windows has instead. The game ignores the result either way. */
+   viewer Windows has instead. The game ignores the result either way.
+   1.0.1 has no kprun step: it shows "Acrobat Reader nao foi instalado
+   corretamente" instead, so there the whole function (thiscall, no
+   arguments, result unused) jumps to open_manual. */
+static void __cdecl open_manual(void)
+{
+    char path[MAX_PATH], *q;
+    HINSTANCE r = 0;
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    if ((q = strrchr(path, 92)) != NULL) {
+        strcpy(q + 1, "KPD3Manual.pdf");
+        if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) strcpy(q + 1, "KdpxManual.pdf");
+        r = ShellExecuteA(NULL, "open", path, NULL, NULL, SW_SHOWNORMAL);
+    }
+    notef("manual", (INT_PTR)r > 32, "Help > View User Guide: opened %s -> %d", path, (int)(INT_PTR)r);
+}
+
+static void hook_manual_fn(void)    /* DllMain, 1.0.1 */
+{
+    static const BYTE orig[] = { 0x81, 0xEC, 0x5C, 0x03, 0x00, 0x00 };   /* sub esp, 35Ch */
+    BYTE *p;
+    DWORD old;
+    if (!g_b || !g_b->manualFn) return;
+    p = (BYTE *)g_b->manualFn;
+    if (memcmp(p, orig, sizeof(orig))) { notef("proxy", 0, "manual function not where expected"); return; }
+    VirtualProtect(p, 5, PAGE_EXECUTE_READWRITE, &old);
+    p[0] = 0xE9; *(DWORD *)(p + 1) = (DWORD)open_manual - ((DWORD)p + 5);
+    VirtualProtect(p, 5, old, &old);
+    FlushInstructionCache(GetCurrentProcess(), p, 5);
+}
+
 static BOOL WINAPI my_CreateProcessA(LPCSTR app, LPSTR cmd, LPSECURITY_ATTRIBUTES pa, LPSECURITY_ATTRIBUTES ta,
                                      BOOL inherit, DWORD flags, LPVOID env, LPCSTR dir,
                                      LPSTARTUPINFOA si, LPPROCESS_INFORMATION pi)
@@ -652,15 +760,7 @@ static BOOL WINAPI my_CreateProcessA(LPCSTR app, LPSTR cmd, LPSECURITY_ATTRIBUTE
         const char *k = strstr(cmd, "kprun.exe"), *e = cmd + strlen(cmd);
         while (e > cmd && e[-1] == ' ') e--;
         if (k && e - cmd >= 4 && !_strnicmp(e - 4, "Acro", 4)) {
-            char path[MAX_PATH], *q;
-            HINSTANCE r = 0;
-            GetModuleFileNameA(NULL, path, MAX_PATH);
-            if ((q = strrchr(path, 92)) != NULL) {
-                strcpy(q + 1, "KPD3Manual.pdf");
-                if (GetFileAttributesA(path) == INVALID_FILE_ATTRIBUTES) strcpy(q + 1, "KdpxManual.pdf");
-                r = ShellExecuteA(NULL, "open", path, NULL, NULL, SW_SHOWNORMAL);
-            }
-            notef("manual", (INT_PTR)r > 32, "Help > View User Guide: opened %s -> %d", path, (int)(INT_PTR)r);
+            open_manual();
             SetLastError(ERROR_FILE_NOT_FOUND);
             return FALSE;
         }
@@ -676,9 +776,6 @@ static BOOL WINAPI my_CreateProcessA(LPCSTR app, LPSTR cmd, LPSECURITY_ATTRIBUTE
    never do (a hung program, or a suspended Store app such as Settings), so
    the game froze before showing its window. Post the notice instead: the
    fonts are already usable, and other programs learn of them just the same. */
-#define KPD3_FONTCAST_START  0x004FB036
-#define KPD3_FONTCAST_EXIT   0x004FB503
-#define KPD3_IAT_SendMessageA 0x005526E0
 
 static LRESULT WINAPI my_FontChangeNotify(HWND h, UINT msg, WPARAM w, LPARAM l)
 {
@@ -766,13 +863,11 @@ static HANDLE WINAPI my_CreateFileA(LPCSTR n, DWORD a, DWORD s, LPSECURITY_ATTRI
    cnc-ddraw has subclassed the main window and sized it. */
 #define KPD3_W                   800
 #define KPD3_H                   600
-#define KPD3_IMAGE_LO            0x00401000
-#define KPD3_IMAGE_HI            0x00552000
-#define KPD3_PIN_FN              0x005092F4   /* vfunc 0xF8: obj+0x80 = on; shows (SW_SHOWNA) / hides */
+#define KPD3_PIN_FN              g_b->pinFn          /* vfunc 0xF8: obj+0x80 = on; shows (SW_SHOWNA) / hides */
 #define KPD3_PINNED(obj)         (*(volatile WORD *)((BYTE *)(obj) + 0x80))
-#define KPD3_IAT_GetWindowLongA  0x0055251C
-#define KPD3_IAT_GetWindowRect   0x005526F0
-#define KPD3_CLICK_GETRECT       0x00509202   /* CALL [GetWindowRect] before SC_MOUSEMENU */
+#define KPD3_IAT_GetWindowLongA  g_b->iatGetWindowLongA
+#define KPD3_IAT_GetWindowRect   g_b->iatGetWindowRect
+#define KPD3_CLICK_GETRECT       g_b->clickGetRect   /* CALL [GetWindowRect] before SC_MOUSEMENU */
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED            0x02E0
 #endif
@@ -1093,7 +1188,7 @@ static void main_subclass_check(void)
         return;
     /* KPD3's GetWindowLongA slot is cnc's fake: GWL_WNDPROC of main -> g_ddraw.wndproc */
     game = (WNDPROC)(*(PFN_GetWindowLongA *)KPD3_IAT_GetWindowLongA)(g_mainWnd, GWL_WNDPROC);
-    if ((DWORD)game < KPD3_IMAGE_LO || (DWORD)game >= KPD3_IMAGE_HI) {
+    if (!in_game((DWORD)game)) {
         if (!g_badGame++) notef("menubar", 0, "Alt/F10: game window proc %p not in KPD3.exe - not subclassed", game);
         return;
     }
@@ -1129,7 +1224,7 @@ static int menu_attach(void)
             a1 = p_GetAwarenessFromDpiAwarenessContext(p_GetWindowDpiAwarenessContext(f));
             a2 = p_GetAwarenessFromDpiAwarenessContext(p_GetWindowDpiAwarenessContext(owner));
         }
-        notef("menubar", 1, "popup %p subclassed (game proc %p, expected 00508B6D), owner %p; DPI popup %u/aw%d main %u/aw%d",
+        notef("menubar", 1, "popup %p subclassed (game proc %p), owner %p; DPI popup %u/aw%d main %u/aw%d",
               f, g_menuPrev, owner, d1, a1, d2, a2);
     }
     return 1;
@@ -1153,7 +1248,7 @@ static void menu_tick(void)
 {
     static DWORD last;
     DWORD now;
-    if (!g_primTried || GetCurrentThreadId() != g_mainTid) return;
+    if (!g_b || !g_primTried || GetCurrentThreadId() != g_mainTid) return;
     if (!g_menuInit) {
         g_menuInit = 1;
         menu_config();
@@ -1271,6 +1366,7 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID r)
         g_t0 = GetTickCount();
         g_mainTid = GetCurrentThreadId();
         log_open(h);
+        detect_build();
         DisableProcessWindowsGhosting();   /* the Win98 layer's NoGhost: loads can stall the message loop */
         if (g_log) {
             /* Has Windows applied a compatibility layer again? Its shim DLLs
@@ -1288,18 +1384,21 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID r)
         load_real();
         qt_install();
         rename_manual();
+        hook_manual_fn();
         trap_purecall();
         if (g_log) AddVectoredExceptionHandler(1, av_logger);
-        redirect_icall(KPD3_FONTCAST_START, (void *)my_FontChangeNotify, KPD3_IAT_SendMessageA);
-        redirect_icall(KPD3_FONTCAST_EXIT,  (void *)my_FontChangeNotify, KPD3_IAT_SendMessageA);
-        redirect_call(0x004FA3EA, pick_mode,   0x004FA863);
-        redirect_call(0x004FA471, log_setmode, 0x004FEDC0);
+        if (g_b) {
+            redirect_icall(g_b->fontcastStart, (void *)my_FontChangeNotify, g_b->iatSendMessageA);
+            redirect_icall(g_b->fontcastExit,  (void *)my_FontChangeNotify, g_b->iatSendMessageA);
+            redirect_call(g_b->pickCall,    pick_mode,   g_b->pickFn);
+            redirect_call(g_b->setmodeCall, log_setmode, g_b->setmodeFn);
+        }
 
         HOOK("kernel32.dll", CreateFileA);
         HOOK("kernel32.dll", OutputDebugStringA);
         HOOK("kernel32.dll", LoadLibraryA);
         HOOK("kernel32.dll", GetVersion);
-        HOOK("kernel32.dll", GetVersionExA);
+        HOOK_IF_IMPORTED("kernel32.dll", GetVersionExA);   /* US 1.0 only */
         HOOK("kernel32.dll", ExitProcess);
         HOOK("kernel32.dll", WaitForSingleObject);
         HOOK("winmm.dll",    midiOutGetDevCapsA);
@@ -1313,7 +1412,8 @@ BOOL WINAPI DllMain(HINSTANCE h, DWORD reason, LPVOID r)
         HOOK("user32.dll",   GetSystemMetrics);
         HOOK("gdi32.dll",    GetDeviceCaps);
         HOOK("gdi32.dll",    IntersectClipRect);
-        HOOK("user32.dll",   ToAscii);
+        HOOK_IF_IMPORTED("user32.dll", ToAscii);     /* US 1.0 */
+        HOOK_IF_IMPORTED("user32.dll", ToAsciiEx);   /* 1.0.1 */
         HOOK("kernel32.dll", DeviceIoControl);
         HOOK("kernel32.dll", CreateProcessA);
         /* cnc-ddraw re-patches the slots it hooks when DDRAW.DLL loads, so the

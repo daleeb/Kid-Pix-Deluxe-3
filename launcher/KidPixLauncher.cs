@@ -170,13 +170,58 @@ namespace KidPixLauncher
             catch { }
         }
 
-        public static void Launch()
+        /* The Brazilian Portuguese edition checks for its CD at every start: KPD3.exe
+           opens the file named by the first FileCheck= line of kprun.ini (in its
+           working folder) and quits unless it exists. Its own installer wrote the CD
+           drive into kprun.ini; do the same before each start, so the CD, or a mounted
+           copy of it, can be in any drive. The US edition has no kprun.ini. */
+        static bool PointKprunAtDisc()
         {
+            string ini = Path.Combine(PlayDir, "kprun.ini");
+            if (!File.Exists(ini)) return true;
+            string drive = null;
+            foreach (DriveInfo d in DriveInfo.GetDrives())
+            {
+                try
+                {
+                    if (d.DriveType == DriveType.CDRom && d.IsReady &&
+                        File.Exists(Path.Combine(d.RootDirectory.FullName, @"INSTALL\KP\378180.CD")))
+                    {
+                        drive = d.RootDirectory.FullName.Substring(0, 2);
+                        break;
+                    }
+                }
+                catch { }
+            }
+            if (drive == null)
+            {
+                MessageBox.Show("Insira o CD do Kid Pix Deluxe 3 (ou abra a imagem ISO do CD) e tente de novo.\n\n" +
+                                "Insert the Kid Pix Deluxe 3 CD (or mount the CD's ISO image) and try again.",
+                                "Kid Pix Deluxe 3", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
+            }
+            Encoding enc = Encoding.Default;
+            string[] lines = File.ReadAllLines(ini, enc);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                int eq = lines[i].IndexOf('=');
+                if (eq > 0 && lines[i].Length > eq + 3 && lines[i][eq + 2] == ':' && lines[i][eq + 3] == '\\' &&
+                    char.IsLetter(lines[i][eq + 1]))
+                    lines[i] = lines[i].Substring(0, eq + 1) + drive + lines[i].Substring(eq + 3);
+            }
+            File.WriteAllText(ini, string.Join("\r\n", lines) + "\r\n", enc);
+            return true;
+        }
+
+        public static bool Launch()
+        {
+            if (!PointKprunAtDisc()) return false;
             ClearCompatAssistantRecord();
             var psi = new ProcessStartInfo(Exe);
             psi.WorkingDirectory = PlayDir;
             psi.UseShellExecute = true;
             Process.Start(psi);
+            return true;
         }
 
         public static string LastChoice()
@@ -440,8 +485,7 @@ namespace KidPixLauncher
             {
                 Game.ApplySize(current.Preset);
                 Game.SaveChoice(current.Preset);
-                Game.Launch();
-                Close();
+                if (Game.Launch()) Close();
             }
             catch (Exception ex)
             {
@@ -481,7 +525,7 @@ namespace KidPixLauncher
                 if (args[0] == "--size")
                 {
                     Game.SaveChoice(p);
-                    Game.Launch();
+                    if (!Game.Launch()) return 3;
                 }
                 return 0;
             }

@@ -14,13 +14,13 @@
    answers "not available" in a way each caller handles: errors as a
    sign-extended OSErr, NULL for pointer results, and out-parameters cleared.
    Selector meanings and caller behaviour were mapped in IDA. */
-#define QT_THUNK_LOADER   ((void **)0x00586E28)   /* lazy loader; 0 = never try to load QuickTime */
-#define QT_THUNK_DISPATCH ((void **)0x00586E2C)   /* theQuickTimeDispatcher */
-#define QT_THUNK_CALLCOMP ((void **)0x00586E30)   /* _CallComponent (set, never called) */
-#define QT_THUNK_CCFWS    ((void **)0x00586E34)   /* _CallComponentFunctionWithStorage (likewise) */
-#define QT_INIT_COUNT     (*(volatile LONG *)0x00597DD0)   /* InitializeQTML glue: > 0 = already up */
-#define QT_LOAD_FN        0x00454A60              /* LoadLibraryA("quicktime.qts") + InitializeQTML */
-#define QT_QFX_ERASER_FN  0x004AD620              /* QuickTime-effect eraser animation (thiscall, no args) */
+#define QT_THUNK_LOADER   ((void **)g_b->qtThunks)       /* 0x586E28 lazy loader; 0 = never try to load QuickTime */
+#define QT_THUNK_DISPATCH (QT_THUNK_LOADER + 1)           /* theQuickTimeDispatcher */
+#define QT_THUNK_CALLCOMP (QT_THUNK_LOADER + 2)           /* _CallComponent (set, never called) */
+#define QT_THUNK_CCFWS    (QT_THUNK_LOADER + 3)           /* _CallComponentFunctionWithStorage (likewise) */
+#define QT_INIT_COUNT     (*(volatile LONG *)g_b->qtInitCount)   /* 0x597DD0 InitializeQTML glue: > 0 = already up */
+#define QT_LOAD_FN        g_b->qtLoadFn                   /* 0x454A60 LoadLibraryA("quicktime.qts") + InitializeQTML */
+#define QT_QFX_ERASER_FN  g_b->qtQfxEraserFn              /* 0x4AD620 QuickTime-effect eraser animation (thiscall, no args) */
 
 enum { noErr = 0, paramErr = -50, memFullErr = -108, fnfErr = -43, noCodecErr = -8961,
        qtNotAvailable = -2093, badComponentInstance = (int)0x80008001, gwFlagErr = (int)0x80000000 };
@@ -889,6 +889,7 @@ static void qt_install(void)                    /* DllMain, before any game code
     static const BYTE qfxNew[]   = { 0xC3 };                          /* ret (thiscall, no stack args) */
     DWORD old;
     InitializeCriticalSection(&g_qtLock);
+    if (!g_b) return;
     /* Never load QuickTime.qts from the search path (DLL planting), and keep
        the InitializeQTML glue from putting the "unavailable" stub back. */
     patch_bytes(QT_LOAD_FN, loadOrig, sizeof(loadOrig), loadNew, sizeof(loadNew), "QuickTime loader");

@@ -43,6 +43,12 @@ In the game:
   - In a window, the game keeps the mouse pointer inside its window while you
     play. Ctrl+Tab lets the pointer go (or switch away with Alt+Tab).
 
+Brazilian Portuguese edition: the game checks for its CD each time it
+starts, as it always did. Keep the CD (or its ISO image, opened in File
+Explorer) in a drive while you play; the launcher finds it in any drive.
+(Edição brasileira: deixe o CD, ou a imagem ISO aberta, em uma unidade
+enquanto joga.)
+
 
 WHAT DOES NOT WORK
 ------------------

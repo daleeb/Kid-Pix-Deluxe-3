@@ -87,6 +87,9 @@ Source: "{#Game}\engphon.env";          DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Game}\usa86.lex";            DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Game}\Read Me.txt";          DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Game}\KidPixWeb.url";        DestDir: "{app}"; Flags: ignoreversion
+; Brazilian Portuguese edition only: the game checks for its CD through this
+; file, and the launcher points it at the CD drive before each start.
+Source: "{#Game}\kprun.ini";            DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#Game}\*.ico";                DestDir: "{app}"; Flags: ignoreversion
 Source: "Read Me - Windows 10 and 11.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Game}\cnc-ddraw LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
@@ -121,7 +124,8 @@ Source: "{#Fonts}\VOGEN___.TTF"; DestDir: "{autofonts}"; FontInstall: "Vogel Nor
 Source: "{#Game}\Data\*";               DestDir: "{app}\Data";         Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Game}\Libraries\*";          DestDir: "{app}\Libraries";    Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#Game}\Idea Machine\*";       DestDir: "{app}\Idea Machine"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#Game}\QTmovies\*";           DestDir: "{app}\QTmovies";     Flags: ignoreversion recursesubdirs createallsubdirs
+; not on the Brazilian Portuguese CD
+Source: "{#Game}\QTmovies\*";           DestDir: "{app}\QTmovies";     Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
 
 [Icons]
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Kid Pix Launcher.exe"; WorkingDir: "{app}"; Comment: "Choose a window size and play Kid Pix Deluxe 3"; Tasks: desktopicon
@@ -332,6 +336,9 @@ begin
   Kept := '';
   if DirExists(ExpandConstant('{app}\Users')) then
     Kept := Kept + #13#10 + '  ' + ExpandConstant('{app}\Users');
+  { the Brazilian Portuguese edition's name for it }
+  if DirExists(ExpandConstant('{app}\Usu') + #225 + 'rios') then
+    Kept := Kept + #13#10 + '  ' + ExpandConstant('{app}\Usu') + #225 + 'rios';
   if DirExists(ExpandConstant('{app}\Screenshots')) then
     Kept := Kept + #13#10 + '  ' + ExpandConstant('{app}\Screenshots');
   if Kept <> '' then

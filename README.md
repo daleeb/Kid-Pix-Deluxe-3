@@ -12,11 +12,22 @@ installer (and an ISO that carries it). The installed game:
   small launcher (Original 800 × 600, Large 1.5×, Extra large 2×, Fullscreen);
 - installs per user with no administrator prompt, and runs without one;
 - saves and opens pictures **without QuickTime**;
-- doesn't ask for the CD.
+- doesn't ask for the CD (US edition; see below for the Brazilian one).
 
 **No game files are included.** Kid Pix is Broderbund's (now Houghton Mifflin
 Harcourt's); you need the original CD. The build checks every game file it
 changes against a known SHA-256 and stops if your CD differs.
+
+### Supported CDs
+
+| Edition | KPD3.exe | Notes |
+|---|---|---|
+| US (2000) | 1.0 | |
+| Brazilian Portuguese (2003) | 1.0.1 | a different build: the shim has its own address table for it (`g_builds` in `shim\proxy.c`). The data is in `Data\Data` on this CD and there is no QTmovies folder; `prepare.ps1` handles both. This edition checks for its CD at every start (through `kprun.ini`), as it always did, so the CD or its ISO must be in a drive to play; the launcher finds it and points `kprun.ini` at that drive. |
+
+Other releases are refused by `prepare.ps1`. Adding one means mapping the
+shim's patch sites in its KPD3.exe and adding a row to `g_builds` and to
+`$editions` in `prepare.ps1`.
 
 ## What's here
 
